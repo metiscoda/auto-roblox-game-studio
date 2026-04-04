@@ -25,7 +25,7 @@ Never create or modify GUI from server scripts.
 
 ```lua
 --!strict
--- In StarterGui (Rojo: spacetycoon-rojo/src/client/UI/)
+-- In StarterGui (Rojo: game-rojo/src/client/UI/)
 
 -- ScreenGui properties
 local gui = Instance.new("ScreenGui")

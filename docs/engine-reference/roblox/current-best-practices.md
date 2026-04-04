@@ -12,7 +12,7 @@ Focused on patterns relevant to a space trading tycoon.
 ### Rojo Directory Layout
 
 ```
-spacetycoon-rojo/src/
+game-rojo/src/
 ├── server/          → ServerScriptService.Server     (*.server.luau)
 ├── client/          → StarterPlayer.StarterPlayerScripts.Client (*.client.luau)
 └── shared/          → ReplicatedStorage.Shared       (*.luau modules)
