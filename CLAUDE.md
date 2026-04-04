@@ -5,22 +5,22 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Technology Stack
 
-- **Engine**: [CHOOSE: Godot 4 / Unity / Unreal Engine 5 / Roblox Studio]
-- **Language**: [CHOOSE: GDScript / C# / C++ / Blueprint / Luau]
+- **Engine**: Roblox Studio
+- **Language**: Luau (--!strict mode)
 - **Version Control**: Git with trunk-based development
-- **Build System**: [SPECIFY after choosing engine]
-- **Asset Pipeline**: [SPECIFY after choosing engine]
+- **Build System**: Rojo 7.6.1 (syncs `game-rojo/` to Studio)
+- **Asset Pipeline**: Roblox Studio (models, meshes, images managed in Studio)
+- **Live Bridge**: Roblox Studio MCP (inspection, testing, runtime interaction)
 
-> **Note**: Engine-specialist agents exist for Godot, Unity, Unreal, and Roblox
-> with dedicated sub-specialists. Use the set matching your engine.
+> **Engine specialist**: Use `roblox-specialist` agent for all Roblox-specific decisions.
 
 ## Project Structure
 
 @.claude/docs/directory-structure.md
 
-## Engine Version Reference
+## Roblox Studio Tooling
 
-@docs/engine-reference/godot/VERSION.md
+@.claude/docs/roblox-studio-mcp.md
 
 ## Technical Preferences
 

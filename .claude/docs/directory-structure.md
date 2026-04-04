@@ -4,7 +4,13 @@
 /
 ├── CLAUDE.md                    # Master configuration
 ├── .claude/                     # Agent definitions, skills, hooks, rules, docs
-├── src/                         # Game source code (core, gameplay, ai, networking, ui, tools)
+├── game-rojo/            # Rojo project (syncs to Roblox Studio)
+│   ├── default.project.json     # Rojo project config
+│   └── src/
+│       ├── server/              # ServerScriptService scripts (.server.luau)
+│       ├── client/              # StarterPlayerScripts scripts (.client.luau)
+│       └── shared/              # ReplicatedStorage modules (.luau)
+├── src/                         # Non-Rojo source (tooling, utilities)
 ├── assets/                      # Game assets (art, audio, vfx, shaders, data)
 ├── design/                      # Game design documents (gdd, narrative, levels, balance)
 ├── docs/                        # Technical documentation (architecture, api, postmortems)

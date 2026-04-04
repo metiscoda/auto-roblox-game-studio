@@ -1,48 +1,62 @@
 # Technical Preferences
 
-<!-- Populated by /setup-engine. Updated as the user makes decisions throughout development. -->
+<!-- Populated by engine setup. Updated as the user makes decisions throughout development. -->
 <!-- All agents reference this file for project-specific standards and conventions. -->
 
 ## Engine & Language
 
-- **Engine**: [TO BE CONFIGURED — run /setup-engine]
-- **Language**: [TO BE CONFIGURED]
-- **Rendering**: [TO BE CONFIGURED]
-- **Physics**: [TO BE CONFIGURED]
+- **Engine**: Roblox Studio
+- **Language**: Luau (`--!strict` mode required)
+- **Rendering**: Roblox rendering engine (Voxel lighting configured)
+- **Physics**: Roblox default physics engine
+- **Sync Tool**: Rojo 7.6.1 (`game-rojo/` -> Studio)
+- **Live Bridge**: Roblox Studio MCP (inspection, testing, runtime)
 
 ## Naming Conventions
 
-- **Classes**: [TO BE CONFIGURED]
-- **Variables**: [TO BE CONFIGURED]
-- **Signals/Events**: [TO BE CONFIGURED]
-- **Files**: [TO BE CONFIGURED]
-- **Scenes/Prefabs**: [TO BE CONFIGURED]
-- **Constants**: [TO BE CONFIGURED]
+- **Classes/Modules**: PascalCase (`PlayerManager`, `CombatSystem`)
+- **Variables/Functions**: camelCase (`playerHealth`, `calculateDamage`)
+- **RemoteEvents/Functions**: PascalCase (`FireProjectile`, `GetInventory`)
+- **Constants**: UPPER_SNAKE_CASE (`MAX_HEALTH`, `SPAWN_DELAY`)
+- **Files (Rojo)**: PascalCase `.luau` (`PlayerManager.luau`, `init.server.luau`)
+- **Folders**: PascalCase (`CombatSystem/`, `UI/`)
+
+## Roblox Architecture
+
+- **Server scripts**: `game-rojo/src/server/` -> `ServerScriptService.Server`
+- **Client scripts**: `game-rojo/src/client/` -> `StarterPlayer.StarterPlayerScripts.Client`
+- **Shared modules**: `game-rojo/src/shared/` -> `ReplicatedStorage.Shared`
+- **Server-only modules**: Consider adding `ServerStorage` path to Rojo project as needed
+- **Client/Server model**: Server-authoritative for all gameplay state
 
 ## Performance Budgets
 
-- **Target Framerate**: [TO BE CONFIGURED]
-- **Frame Budget**: [TO BE CONFIGURED]
-- **Draw Calls**: [TO BE CONFIGURED]
-- **Memory Ceiling**: [TO BE CONFIGURED]
+- **Target Framerate**: 60 FPS (client)
+- **Server Heartbeat**: < 20ms
+- **Memory Ceiling**: [TO BE CONFIGURED — platform dependent]
+- **RemoteEvent Budget**: Minimize traffic; batch updates; use unreliable for cosmetics
 
 ## Testing
 
-- **Framework**: [TO BE CONFIGURED]
+- **Framework**: [TO BE CONFIGURED — TestEZ or similar]
 - **Minimum Coverage**: [TO BE CONFIGURED]
-- **Required Tests**: Balance formulas, gameplay systems, networking (if applicable)
+- **Required Tests**: Balance formulas, gameplay systems, DataStore operations
 
 ## Forbidden Patterns
 
-<!-- Add patterns that should never appear in this project's codebase -->
-- [None configured yet — add as architectural decisions are made]
+- `wait()`, `spawn()`, `delay()` — use `task.wait()`, `task.spawn()`, `task.delay()`
+- Global variables — all variables must be `local`
+- `game:GetService()` inside loops or per-frame callbacks — cache at module scope
+- Client-side gameplay state authority — server-authoritative only
+- `SetAsync` for player data — use `UpdateAsync` to avoid race conditions
+- Hardcoded gameplay values — must be data-driven (config modules or Attributes)
+- `Instance:FindFirstChild()` in tight loops — cache references
+- Scripts without `--!strict` mode
 
 ## Allowed Libraries / Addons
 
-<!-- Add approved third-party dependencies here -->
 - [None configured yet — add as dependencies are approved]
 
 ## Architecture Decisions Log
 
-<!-- Quick reference linking to full ADRs in docs/architecture/ -->
 - [No ADRs yet — use /architecture-decision to create one]
