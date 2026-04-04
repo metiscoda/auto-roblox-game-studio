@@ -4,12 +4,19 @@ This directory contains curated, version-pinned documentation snapshots for the
 game engine(s) used in this project. These files exist because **LLM knowledge
 has a cutoff date** and game engines update frequently.
 
+## Active Engine
+
+**Roblox Studio** — see `roblox/` directory.
+
+This project is built on Roblox Studio with Luau (`--!strict`) and Rojo 7.6.1.
+All engine-specialist agents must read `roblox/VERSION.md` first.
+
 ## Why This Exists
 
-Claude's training data has a knowledge cutoff (currently May 2025). Game engines
-like Godot, Unity, and Unreal ship updates that introduce breaking API changes,
-new features, and deprecated patterns. Without these reference files, agents will
-suggest outdated code.
+Claude's training data has a knowledge cutoff (currently August 2025). Game engines
+like Roblox ship updates on a rolling release schedule that introduce breaking API
+changes, new features, and deprecated patterns. Without these reference files, agents
+will suggest outdated code.
 
 ## Structure
 
