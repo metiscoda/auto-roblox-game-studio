@@ -82,13 +82,14 @@ Tier 3 — Specialists (Sonnet/Haiku)
 
 ### Engine Specialists
 
-The template includes agent sets for all three major engines. Use the set that matches your project:
+The template includes agent sets for four engines. Use the set that matches your project:
 
 | Engine | Lead Agent | Sub-Specialists |
 |--------|-----------|-----------------|
 | **Godot 4** | `godot-specialist` | GDScript, Shaders, GDExtension |
 | **Unity** | `unity-specialist` | DOTS/ECS, Shaders/VFX, Addressables, UI Toolkit |
 | **Unreal Engine 5** | `unreal-specialist` | GAS, Blueprints, Replication, UMG/CommonUI |
+| **Roblox Studio** | `roblox-specialist` | Luau, Rojo sync, MCP live bridge |
 
 ## Slash Commands
 
@@ -165,6 +166,7 @@ CLAUDE.md                           # Master configuration
     agent-coordination-map.md       # Delegation and escalation paths
     setup-requirements.md           # Prerequisites and platform notes
     templates/                      # 28 document templates
+game-rojo/                          # Rojo project (syncs Luau scripts to Roblox Studio)
 src/                                # Game source code
 assets/                             # Art, audio, VFX, shaders, data files
 design/                             # GDDs, narrative docs, level designs
@@ -250,7 +252,7 @@ This is a **template**, not a locked framework. Everything is meant to be custom
 - **Modify skills** — adjust workflows to match your team's process
 - **Add rules** — create new path-scoped rules for your project's directory structure
 - **Tune hooks** — adjust validation strictness, add new checks
-- **Pick your engine** — use the Godot, Unity, or Unreal agent set (or none)
+- **Pick your engine** — use the Godot, Unity, Unreal, or Roblox agent set (or none)
 
 ## Platform Support
 

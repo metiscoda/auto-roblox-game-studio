@@ -6,7 +6,7 @@ This is a complete Claude Code agent architecture for game development. It
 organizes 48 specialized AI agents into a studio hierarchy that mirrors
 real game development teams, with defined responsibilities, delegation
 rules, and coordination protocols. It includes engine-specialist agents
-for Godot, Unity, and Unreal — each with dedicated sub-specialists for
+for Godot, Unity, Unreal, and Roblox — each with dedicated sub-specialists for
 major engine subsystems. All design agents and templates are grounded in
 established game design theory (MDA Framework, Self-Determination Theory,
 Flow State, Bartle Player Types). Use whichever engine set matches your project.
