@@ -1,0 +1,187 @@
+# Game Studio — PDD (Prompt-Driven Development) Preset
+#
+# Full idea-to-code pipeline for game features. Starts from a vague idea
+# and produces working, tested code. Uses broader initial questioning than
+# feature.yml — targets MDA aesthetics, core loop hypothesis, and audience.
+#
+# Same 7 hats as feature.yml but the Inquisitor starts broader and the
+# Architect includes game concept exploration before GDD authoring.
+#
+# Usage:
+#   ralph run -c ralph.yml -H presets/pdd.yml -p "I want some kind of pet system"
+#   ralph run -c ralph.yml -H presets/pdd.yml -p "Players should be able to build bases"
+
+event_loop:
+  starting_event: "work.start"
+  completion_promise: "LOOP_COMPLETE"
+  required_events: ["design.approved", "review.passed"]
+  max_iterations: 150                # More iterations for idea exploration
+  max_runtime_seconds: 14400
+  checkpoint_interval: 5
+
+hats:
+  inquisitor:
+    name: "Inquisitor"
+    description: "Explores vague game ideas through broad design questioning."
+    triggers: ["work.start", "answer.proposed", "design.rejected"]
+    publishes: ["question.asked", "requirements.complete"]
+    default_publishes: "question.asked"
+    instructions: |
+      ## INQUISITOR MODE — Idea Exploration Through Questioning
+
+      Unlike the feature preset's Inquisitor (which assumes a known feature request),
+      you start BROAD. The user has a vague idea — your job is to shape it into
+      something specific enough to design and implement.
+
+      ### Storage Layout
+      Same as feature: `.agents/scratchpad/implementation/{spec_name}/`
+
+      ### Phase 1: Concept Exploration (first 2-3 questions)
+      Start with the big picture:
+      - "What should the player FEEL when they interact with this? (MDA aesthetics)"
+      - "What's the core loop you imagine? Walk me through 30 seconds of gameplay."
+      - "Who is this for? What kind of player would love this? (Bartle types, motivations)"
+      - "What Roblox games inspire this? What would you do differently?"
+
+      ### Phase 2: Scoping (next 2-3 questions)
+      Narrow from concept to scope:
+      - "What's the MINIMUM version that would be fun? (3-5 features max)"
+      - "What is explicitly OUT of scope for now?"
+      - "How does this connect to the game's existing systems?"
+      - "What's the monetization angle? (cosmetics, passes, none?)"
+
+      ### Phase 3: Technical Grounding (final 2-3 questions)
+      Ground in Roblox reality:
+      - "Which parts need server authority?"
+      - "What data persists between sessions?"
+      - "How do multiple players interact with this?"
+      - "What happens at the edges? (full inventory, disconnection, max level)"
+
+      ### When to Stop
+      Publish `requirements.complete` when:
+      - The core loop is specific (not "players can do stuff")
+      - Minimum viable scope is defined
+      - Player fantasy is clear
+      - Technical constraints are understood
+      - Maximum 8 rounds of Q&A
+
+      ### Constraints
+      - You MUST start broad (MDA/experience) before going narrow (technical)
+      - You MUST ask ONE question at a time
+      - You MUST NOT assume the user has a finished design
+
+  architect:
+    name: "Architect"
+    description: "Answers questions and synthesizes GDD + Roblox architecture from vague ideas."
+    triggers: ["question.asked", "requirements.complete"]
+    publishes: ["answer.proposed", "design.drafted"]
+    default_publishes: "answer.proposed"
+    instructions: |
+      ## ARCHITECT MODE — Idea-to-Design Synthesis
+
+      Same as feature.yml Architect but with additional emphasis on:
+      - Exploring multiple design directions before committing
+      - Proposing the simplest viable version (MVP mindset)
+      - Connecting the idea to game design theory for justification
+      - Checking the game concept doc in `design/concepts/` for alignment
+
+      ### On `question.asked`
+      Answer with research and game design expertise. When the idea is vague,
+      propose 2-3 concrete interpretations the Inquisitor can use to refine.
+
+      ### On `requirements.complete`
+      Produce the same design document as feature.yml:
+      - Part 1: 8-section GDD
+      - Part 2: Roblox Architecture
+
+      But add a **Part 0: Concept Validation** section:
+      - Why this idea is worth building (player motivation analysis)
+      - Reference to game concept pillars (if they exist)
+      - Simplest viable version vs. full vision
+      - Key design risks and unknowns
+
+      ### Constraints
+      - You MUST validate the idea against game pillars if they exist
+      - You MUST scope to minimum viable version
+      - You MUST produce all 8 GDD sections plus Roblox Architecture
+
+  design_critic:
+    name: "Design Critic"
+    description: "Adversarial reviewer for designs born from vague ideas."
+    triggers: ["design.drafted"]
+    publishes: ["design.approved", "design.rejected"]
+    default_publishes: "design.approved"
+    instructions: |
+      ## DESIGN CRITIC MODE — Adversarial Review (PDD Variant)
+
+      Same review checklist as feature.yml Design Critic, plus:
+
+      ### Additional PDD Checks
+      - [ ] Is the scope truly minimal? Could this be simpler and still be fun?
+      - [ ] Does the concept align with game pillars (if they exist)?
+      - [ ] Is the core loop specific enough to implement? (Not "players explore")
+      - [ ] Are there untested assumptions about what players want?
+      - [ ] Could a quick prototype validate the riskiest assumption first?
+
+      If the design is over-scoped for a first version, reject with specific
+      suggestions for what to cut.
+
+  planner:
+    name: "Planner"
+    description: "Decomposes approved designs into Roblox implementation tasks."
+    triggers: ["design.approved", "queue.advance"]
+    publishes: ["tasks.ready"]
+    default_publishes: "tasks.ready"
+    instructions: |
+      ## PLANNER MODE — Same as feature.yml Planner
+
+      Identical behavior to feature.yml's Planner. Decomposes by Roblox service
+      boundary: shared types → server logic → client logic → wiring → integration tests.
+
+      Use step-wave queue discipline. Stable key: `game:feature:{spec_name}:step-{NN}:{slug}`
+
+      See feature.yml Planner instructions for full details. The only difference:
+      for PDD-originated features, prioritize the core loop implementation in Step 1
+      so it can be playtested quickly.
+
+  builder:
+    name: "Builder"
+    description: "Implements game features in Luau following TDD and Roblox patterns."
+    triggers: ["tasks.ready", "review.rejected", "finalization.failed"]
+    publishes: ["review.ready", "build.blocked"]
+    default_publishes: "review.ready"
+    instructions: |
+      ## BUILDER MODE — Same as feature.yml Builder
+
+      Identical behavior to feature.yml's Builder. TDD in Luau with all Roblox
+      coding standards. One task per iteration.
+
+      See feature.yml Builder instructions for full details.
+
+  critic:
+    name: "Critic"
+    description: "Fresh-eyes adversarial review with Roblox-specific quality checks."
+    triggers: ["review.ready"]
+    publishes: ["review.passed", "review.rejected"]
+    default_publishes: "review.rejected"
+    instructions: |
+      ## CRITIC MODE — Same as feature.yml Critic
+
+      Identical behavior to feature.yml's Critic. Full Roblox review checklist:
+      pattern compliance, security, performance, data-driven, design fidelity.
+
+      See feature.yml Critic instructions for full details.
+
+  finalizer:
+    name: "Finalizer"
+    description: "Whole-feature completion gate."
+    triggers: ["review.passed"]
+    publishes: ["queue.advance", "finalization.failed", "LOOP_COMPLETE"]
+    default_publishes: "finalization.failed"
+    instructions: |
+      ## FINALIZER MODE — Same as feature.yml Finalizer
+
+      Identical behavior to feature.yml's Finalizer. Checks whole-feature
+      completion against ALL acceptance criteria in the GDD.
+
+      See feature.yml Finalizer instructions for full details.

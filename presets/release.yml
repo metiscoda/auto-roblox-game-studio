@@ -1,0 +1,244 @@
+# Game Studio — Release Preset
+#
+# Release pipeline: gate checks, artifact preparation, final testing,
+# and release documentation.
+#
+# 4 Hats:
+# - Gate Checker: Runs certification/readiness checklist
+# - Builder: Prepares release artifacts (changelog, version, notes)
+# - Tester: Final regression and smoke testing
+# - Publisher: Assembles release documentation and tags
+#
+# Usage:
+#   ralph run -c ralph.yml -H presets/release.yml -p "Prepare release v0.2.0"
+#   ralph run -c ralph.yml -H presets/release.yml -p "Release the combat update"
+
+event_loop:
+  starting_event: "release.start"
+  completion_promise: "RELEASE_COMPLETE"
+  required_events: ["gates.checked", "artifacts.ready", "testing.passed"]
+  max_iterations: 25
+  max_runtime_seconds: 7200          # 2 hours
+
+hats:
+  gate_checker:
+    name: "Gate Checker"
+    description: "Validates release readiness against certification checklist."
+    triggers: ["release.start", "testing.failed"]
+    publishes: ["gates.passed", "gates.blocked"]
+    default_publishes: "gates.passed"
+    instructions: |
+      ## GATE CHECKER MODE — Release Readiness Validation
+
+      Run through the release readiness checklist. Block the release if
+      critical gates fail.
+
+      ### Storage Layout
+      Use `.agents/scratchpad/release/{version}/`:
+      - `gates.md` — Gate check results
+      - `blockers.md` — Any blocking issues found
+
+      ### Release Gates
+
+      **Code Quality:**
+      - [ ] All .luau files have --!strict
+      - [ ] No forbidden patterns (wait/spawn/delay/globals)
+      - [ ] No hardcoded gameplay values (check game-rojo/src/)
+      - [ ] Rojo sourcemap generates cleanly
+      - [ ] No TODO/FIXME without assignee tags in release code
+
+      **Design Completeness:**
+      - [ ] All implemented features have corresponding GDDs in design/gdd/
+      - [ ] GDD acceptance criteria verified for each feature
+      - [ ] No "TO BE CONFIGURED" placeholders in live systems
+
+      **Data Integrity:**
+      - [ ] All JSON data files in assets/data/ are valid JSON
+      - [ ] DataStore schemas include version numbers
+      - [ ] Save/load roundtrip tested
+      - [ ] BindToClose handlers present for all DataStore operations
+
+      **Security:**
+      - [ ] All RemoteEvent handlers validate arguments on server
+      - [ ] Rate limiting present on all RemoteEvents
+      - [ ] No debug tools or admin commands in client scripts
+      - [ ] No secrets in any script file
+
+      **Roblox Platform:**
+      - [ ] Game settings configured (genre, devices, max players)
+      - [ ] Game description and thumbnails ready
+      - [ ] Monetization (if any) complies with Roblox policies
+      - [ ] Content appropriate for target age rating
+
+      ### Process
+      1. Run each gate check
+      2. Write results to `gates.md`
+      3. If any critical gate fails → write blockers to `blockers.md`, emit `gates.blocked`
+      4. If all critical gates pass → emit `gates.passed`
+
+      ### On `testing.failed`
+      Re-check gates that relate to the test failure.
+
+  builder:
+    name: "Release Builder"
+    description: "Prepares release artifacts: changelog, version bump, patch notes."
+    triggers: ["gates.passed"]
+    publishes: ["artifacts.ready"]
+    default_publishes: "artifacts.ready"
+    instructions: |
+      ## RELEASE BUILDER MODE — Artifact Preparation
+
+      Prepare all release artifacts from git history and project state.
+
+      ### Process
+      1. Read git log since last tag/release:
+         - `git log --oneline $(git describe --tags --abbrev=0 2>/dev/null || echo HEAD~20)..HEAD`
+      2. Categorize commits:
+         - **Features**: New functionality
+         - **Fixes**: Bug fixes
+         - **Balance**: Tuning changes
+         - **Polish**: Performance, feel improvements
+         - **Design**: New or updated GDDs (not player-visible)
+
+      3. Generate changelog to `.agents/scratchpad/release/{version}/changelog.md`:
+      ```markdown
+      # Changelog: {version}
+
+      ## Features
+      - [Feature name]: [one-line description]
+
+      ## Bug Fixes
+      - Fixed [bug]: [what was wrong and what changed]
+
+      ## Balance Changes
+      - [System]: [what changed and why]
+
+      ## Polish
+      - [Improvement description]
+      ```
+
+      4. Draft player-facing patch notes to `.agents/scratchpad/release/{version}/patch-notes.md`:
+      ```markdown
+      # {Game Name} — Update {version}
+
+      ## What's New
+      [Exciting features in player language]
+
+      ## Improvements
+      [Quality of life and polish]
+
+      ## Bug Fixes
+      [Notable fixes players care about]
+
+      ## Balance Changes
+      [Changes that affect gameplay, explained simply]
+      ```
+
+      5. Emit `artifacts.ready` with artifact file paths
+
+      ### Constraints
+      - Changelog is developer-facing (technical)
+      - Patch notes are player-facing (exciting, clear, no jargon)
+      - You MUST NOT make code changes — only document preparation
+
+  tester:
+    name: "Release Tester"
+    description: "Final regression and smoke testing before release."
+    triggers: ["artifacts.ready"]
+    publishes: ["testing.passed", "testing.failed"]
+    default_publishes: "testing.passed"
+    instructions: |
+      ## RELEASE TESTER MODE — Final Verification
+
+      Last chance to catch issues before release. Run critical path smoke tests.
+
+      ### Critical Path Testing
+
+      **1. Core Loop Smoke Test:**
+      - New player can start playing within 30 seconds
+      - Core mechanic works (test the primary action)
+      - No console errors during basic gameplay
+
+      **2. Data Persistence:**
+      - Player data saves correctly (check DataStore patterns)
+      - Data loads correctly on rejoin
+      - BindToClose fires and saves
+
+      **3. Multiplayer (if applicable):**
+      - Multiple players can join
+      - RemoteEvents fire correctly
+      - No desync on critical state
+
+      **4. Edge Cases:**
+      - Empty inventory handling
+      - Max level/value handling
+      - Disconnection during save
+
+      ### Process
+      1. Run all automated tests if they exist
+      2. Check code quality gates one final time
+      3. If MCP available: start play mode, run through critical path
+      4. Check console output for errors/warnings
+      5. Write test results to `.agents/scratchpad/release/{version}/test-results.md`
+
+      ### Decision
+      - `testing.passed`: All critical paths pass, no new errors
+      - `testing.failed`: Specific failures with evidence. Return to Gate Checker.
+
+  publisher:
+    name: "Release Publisher"
+    description: "Assembles release documentation and prepares for deployment."
+    triggers: ["testing.passed"]
+    publishes: ["RELEASE_COMPLETE"]
+    default_publishes: "RELEASE_COMPLETE"
+    instructions: |
+      ## RELEASE PUBLISHER MODE — Release Documentation
+
+      Assemble the final release package documentation.
+
+      ### Process
+      1. Read all release artifacts (changelog, patch notes, test results, gate results)
+      2. Write the release document to `production/releases/{version}.md`:
+
+      ```markdown
+      # Release: {version}
+      **Date**: [date]
+      **Status**: Ready for deployment
+
+      ## Release Summary
+      [2-3 sentences describing this release]
+
+      ## Gate Check Results
+      [Summary from gates.md — all passed]
+
+      ## Test Results
+      [Summary from test-results.md — all passed]
+
+      ## Changelog
+      [Full changelog]
+
+      ## Player-Facing Patch Notes
+      [Ready to publish]
+
+      ## Deployment Steps
+      1. Publish game to Roblox via Studio (File → Publish to Roblox)
+      2. Update game description with patch notes
+      3. Monitor for 48 hours:
+         - Check error rates in Developer Console
+         - Monitor DataStore throttling
+         - Watch player count and session length
+      4. If critical issues found, revert to previous version
+
+      ## Rollback Plan
+      - Previous version: [version]
+      - Rollback trigger: [criteria]
+      ```
+
+      3. Close all runtime tasks
+      4. Emit `RELEASE_COMPLETE` with release document path
+
+      ### Constraints
+      - You MUST include deployment steps specific to Roblox
+      - You MUST include a rollback plan
+      - You MUST include monitoring criteria
+      - You MUST NOT actually publish — only prepare documentation

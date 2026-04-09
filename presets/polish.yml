@@ -1,0 +1,210 @@
+# Game Studio — Polish Preset
+#
+# Performance profiling, optimization, and quality hardening for Roblox games.
+# Identifies bottlenecks, implements fixes, and verifies improvements.
+#
+# 4 Hats:
+# - Profiler: Identifies performance bottlenecks and quality issues
+# - Optimizer: Implements performance fixes
+# - Polisher: Handles feel/feedback improvements (VFX, sound, UI)
+# - Verifier: Regression testing and performance comparison
+#
+# Usage:
+#   ralph run -c ralph.yml -H presets/polish.yml -p "Server heartbeat is over 20ms"
+#   ralph run -c ralph.yml -H presets/polish.yml -p "Polish the combat system feel"
+#   ralph run -c ralph.yml -H presets/polish.yml -p "Optimize memory usage across the game"
+
+event_loop:
+  starting_event: "polish.start"
+  completion_promise: "POLISH_COMPLETE"
+  required_events: ["issues.found", "fix.applied"]
+  max_iterations: 50
+  max_runtime_seconds: 10800         # 3 hours
+
+hats:
+  profiler:
+    name: "Profiler"
+    description: "Identifies performance bottlenecks and quality issues."
+    triggers: ["polish.start", "verification.failed"]
+    publishes: ["issues.found"]
+    default_publishes: "issues.found"
+    instructions: |
+      ## PROFILER MODE — Performance & Quality Analysis
+
+      Identify what needs fixing. Measure before optimizing.
+
+      ### Storage Layout
+      Use `.agents/scratchpad/polish/{session_name}/`:
+      - `profile.md` — Findings with measurements
+      - `priorities.md` — Ranked issues by impact
+      - `baseline.md` — Before-optimization measurements
+
+      ### Roblox Performance Metrics
+
+      **Server Performance:**
+      - Heartbeat time (target: < 20ms)
+      - Memory usage per player
+      - DataStore request budget utilization
+      - RemoteEvent bandwidth
+      - Script execution time distribution
+
+      **Client Performance:**
+      - Frame rate (target: 60 FPS)
+      - Memory usage
+      - Load time
+      - Network receive rate
+      - Instance count
+
+      ### Analysis Techniques
+
+      **Code-level profiling (search game-rojo/src/):**
+      - Find `RunService.Heartbeat` / `RenderStepped` handlers — what runs per frame?
+      - Find `game:GetService()` inside functions — should be cached at module scope
+      - Find `Instance.new()` in hot paths — should use pooling
+      - Find `FindFirstChild` / `WaitForChild` in loops — should cache
+      - Find large table iterations — should use spatial queries
+      - Find RemoteEvent fire patterns — batching opportunity?
+
+      **MCP profiling (when Studio available):**
+      - `execute_luau` to query instance counts, memory stats
+      - `start_stop_play` + `get_console_output` for runtime profiling prints
+      - `inspect_instance` to check workspace complexity
+
+      **Feel/feedback audit:**
+      - Are player actions acknowledged within 0.1s? (input feedback)
+      - Do hits/impacts have visual + audio feedback?
+      - Are animations smooth and interruptible?
+      - Does UI respond instantly to state changes?
+
+      ### Process
+      1. Analyze the scope (what area to profile)
+      2. Search code for known anti-patterns
+      3. Measure baseline if possible
+      4. Rank issues by impact: Critical > High > Medium > Low
+      5. Write findings to `profile.md` and priorities to `priorities.md`
+      6. Emit `issues.found` with issue count and top priority
+
+  optimizer:
+    name: "Optimizer"
+    description: "Implements performance fixes for identified bottlenecks."
+    triggers: ["issues.found"]
+    publishes: ["fix.applied"]
+    default_publishes: "fix.applied"
+    instructions: |
+      ## OPTIMIZER MODE — Performance Fix Implementation
+
+      Fix the highest-priority performance issues. One fix per iteration.
+
+      ### Common Roblox Optimizations
+
+      **Service Caching:**
+      ```luau
+      -- Before (bad): GetService in function
+      local function doThing()
+          local rs = game:GetService("ReplicatedStorage") -- called every time
+      end
+      -- After (good): cached at module scope
+      local ReplicatedStorage = game:GetService("ReplicatedStorage")
+      local function doThing()
+          -- use cached reference
+      end
+      ```
+
+      **Object Pooling:**
+      - Identify frequently created/destroyed instances
+      - Create a pool module in `shared/`
+      - Pre-allocate instances, disable instead of destroy, re-enable on reuse
+
+      **Spatial Query Optimization:**
+      - Replace iterating all parts with `GetPartBoundsInRadius()` or `GetPartBoundsInBox()`
+      - Use region-based checks instead of distance to every entity
+
+      **Heartbeat Optimization:**
+      - Move non-per-frame work off Heartbeat
+      - Stagger work across frames (process 10 entities per frame, not all)
+      - Use delta time properly
+
+      **RemoteEvent Batching:**
+      - Collect updates over a period, send as batch
+      - Use unreliable RemoteEvents for cosmetic data
+      - Compress payloads (send IDs instead of full objects)
+
+      **Memory Optimization:**
+      - Disconnect unused event connections
+      - Clear references to destroyed instances
+      - Use Maid/Trove cleanup patterns
+
+      ### Process
+      1. Read `priorities.md` for the top issue
+      2. Implement the fix following Roblox coding standards
+      3. Maintain --!strict, no forbidden patterns
+      4. Update `progress.md` with the fix description
+      5. Emit `fix.applied` with what was fixed
+
+      ### Constraints
+      - One fix per iteration
+      - Follow ALL Roblox coding standards
+      - Measure improvement where possible
+
+  polisher:
+    name: "Polisher"
+    description: "Improves game feel through VFX, sound, and UI feedback."
+    triggers: ["fix.applied"]
+    publishes: ["polish.applied"]
+    default_publishes: "polish.applied"
+    instructions: |
+      ## POLISHER MODE — Feel & Feedback Improvements
+
+      After performance is fixed, improve the FEEL. This hat handles:
+      - Adding missing feedback (visual, audio, haptic)
+      - Smoothing animations and transitions
+      - Improving UI responsiveness
+      - Tightening input response times
+
+      ### Process
+      1. Read the profiler's feel/feedback audit from `profile.md`
+      2. If feel issues were identified, implement ONE improvement per iteration
+      3. If no feel issues remain, emit `polish.applied` with "no feel issues remaining"
+
+      ### Roblox Feel Patterns
+      - **Hit feedback**: Screen shake, particle burst, sound effect, brief color flash
+      - **Input response**: Action starts within 1 frame of input, animation confirms immediately
+      - **UI feedback**: Button press shows instantly, loading states for async operations
+      - **Progression**: Level-up has visual celebration, reward chest has opening animation
+      - **Audio**: Every significant player action has a sound, environmental ambiance loops
+
+      ### Constraints
+      - You MUST follow Roblox coding standards
+      - Client-side only for VFX/sound (never server scripts for cosmetics)
+      - Keep effects lightweight (particle count budget)
+
+  verifier:
+    name: "Verifier"
+    description: "Verifies optimizations improved performance without regressions."
+    triggers: ["polish.applied"]
+    publishes: ["verification.passed", "verification.failed"]
+    default_publishes: "verification.passed"
+    instructions: |
+      ## VERIFIER MODE — Regression & Performance Comparison
+
+      Verify that optimizations actually helped and nothing broke.
+
+      ### Checks
+      1. Run all existing tests — nothing regressed
+      2. Check Roblox standards compliance on modified files
+      3. Compare against baseline (if measurements available)
+      4. Verify no new forbidden patterns introduced
+      5. If Studio available: test in play mode, check console for errors
+
+      ### Verification Criteria
+      - All tests pass
+      - No new warnings/errors in console
+      - --!strict on all modified files
+      - No forbidden patterns
+      - Performance improvement measurable (or feel improvement observable)
+
+      ### Decision
+      - `verification.passed`: Quality improved, no regressions. Close tasks, emit `POLISH_COMPLETE`.
+      - `verification.failed`: Regression found. Detail the failure, return to Profiler.
+
+      If all issues from `priorities.md` are addressed and verified, emit `POLISH_COMPLETE`.

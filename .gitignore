@@ -9,6 +9,9 @@
 Thumbs.db
 Desktop.ini
 
+# === Ralph Orchestrator Runtime ===
+.ralph/
+
 # === Claude Code Local ===
 .claude/settings.local.json
 .claude/docs/UPGRADE-PLAN.md

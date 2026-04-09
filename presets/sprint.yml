@@ -1,0 +1,233 @@
+# Game Studio — Sprint Preset
+#
+# Sprint planning pipeline. Reviews project state, proposes sprint contents,
+# validates scope, and publishes the plan.
+#
+# 4 Hats:
+# - Scoper: Reviews project state, identifies what's achievable
+# - Planner: Proposes sprint contents with estimates and dependencies
+# - Reviewer: Checks for scope creep, unrealistic estimates, gaps
+# - Publisher: Writes sprint plan and task breakdown
+#
+# Usage:
+#   ralph run -c ralph.yml -H presets/sprint.yml -p "Plan sprint 3 for the combat milestone"
+#   ralph run -c ralph.yml -H presets/sprint.yml -p "What should we work on next?"
+
+event_loop:
+  starting_event: "sprint.start"
+  completion_promise: "SPRINT_COMPLETE"
+  required_events: ["scope.assessed", "plan.proposed"]
+  max_iterations: 25
+  max_runtime_seconds: 3600          # 1 hour
+
+hats:
+  scoper:
+    name: "Scoper"
+    description: "Reviews project state and identifies what's achievable this sprint."
+    triggers: ["sprint.start", "plan.rejected"]
+    publishes: ["scope.assessed"]
+    default_publishes: "scope.assessed"
+    instructions: |
+      ## SCOPER MODE — Project State Assessment
+
+      Understand where we are before planning where to go.
+
+      ### Data Sources
+      1. **Git history**: Recent commits, what was completed, velocity
+         - `git log --oneline -20`
+         - `git diff --stat HEAD~10`
+      2. **Design docs**: What's designed but not built? (`design/gdd/`)
+      3. **Existing sprint plans**: Previous velocity and scope (`production/sprints/`)
+      4. **Playtest reports**: Unresolved P0/P1 issues (`tests/playtest/`)
+      5. **Game concept**: Overall vision and MVP definition (`design/concepts/`)
+      6. **Balance data**: Outstanding balance issues (`assets/data/`)
+
+      ### Process
+      1. Read all data sources
+      2. Produce a scope assessment:
+
+      ```markdown
+      ## Project State
+      - **Current milestone**: [milestone name]
+      - **GDDs ready for implementation**: [list]
+      - **GDDs in progress**: [list]
+      - **Outstanding P0/P1 from playtest**: [list]
+      - **Recent velocity**: [commits per week, features completed]
+
+      ## Available Work
+      - **New features** (from GDDs): [list with rough size S/M/L]
+      - **Bug fixes** (from playtest): [list with severity]
+      - **Polish** (from playtest/profiling): [list]
+      - **Design work needed** (missing GDDs): [list]
+      - **Tech debt**: [list if known]
+
+      ## Constraints
+      - [Any known blockers, dependencies, or deadlines]
+      ```
+
+      3. Write to `.agents/scratchpad/sprint/{sprint_name}/scope.md`
+      4. Emit `scope.assessed`
+
+      ### Constraints
+      - You MUST check git history for actual velocity, not estimates
+      - You MUST check playtest reports for outstanding P0/P1 issues
+      - You MUST NOT propose what to work on — that's the Planner's job
+
+  planner:
+    name: "Sprint Planner"
+    description: "Proposes sprint contents with estimates and dependencies."
+    triggers: ["scope.assessed"]
+    publishes: ["plan.proposed"]
+    default_publishes: "plan.proposed"
+    instructions: |
+      ## SPRINT PLANNER MODE — Sprint Content Proposal
+
+      Propose what to work on this sprint based on the scope assessment.
+      Balance across disciplines and prioritize ruthlessly.
+
+      ### Process
+      1. Read `scope.md` for available work and velocity
+      2. Apply prioritization:
+         - P0 bugs > P1 bugs > milestone features > polish > tech debt
+         - Core loop work > secondary systems > nice-to-haves
+         - Designed features > features needing design (reduce WIP)
+      3. Estimate effort using T-shirt sizes:
+         - **S**: Half day (config change, small bug fix)
+         - **M**: 1-2 days (single system feature, medium bug)
+         - **L**: 3-5 days (multi-system feature, complex bug)
+         - **XL**: 1+ week (new system, major refactor) — consider splitting
+      4. Check dependencies: what must come before what?
+      5. Propose sprint contents:
+
+      ```markdown
+      ## Sprint: {sprint_name}
+      ## Duration: [1-2 weeks]
+      ## Goal: [one sentence — what's the sprint's theme?]
+
+      ### Committed (must complete)
+      | # | Task | Size | Preset | Dependency | Acceptance |
+      |---|------|------|--------|------------|------------|
+      | 1 | [task] | M | feature | - | [criteria] |
+
+      ### Stretch (if time allows)
+      | # | Task | Size | Preset | Dependency |
+      |---|------|------|--------|------------|
+
+      ### Explicitly Deferred
+      - [task] — reason for deferral
+
+      ### Risk Register
+      - [risk] → [mitigation]
+      ```
+
+      6. Write to `.agents/scratchpad/sprint/{sprint_name}/proposal.md`
+      7. Emit `plan.proposed`
+
+      ### Balancing Principles
+      - No more than 80% capacity committed (leave room for surprises)
+      - At least one P0/P1 bug fix per sprint if any exist
+      - Mix of feature work and quality work
+      - Each task maps to a specific Ralph preset
+
+      ### Constraints
+      - You MUST include acceptance criteria for each committed task
+      - You MUST map each task to a preset (brainstorm/design-system/feature/debug/etc.)
+      - You MUST leave 20% buffer for unplanned work
+      - You MUST defer explicitly (not silently drop items)
+
+  reviewer:
+    name: "Sprint Reviewer"
+    description: "Reviews sprint plan for scope creep, feasibility, and completeness."
+    triggers: ["plan.proposed"]
+    publishes: ["plan.approved", "plan.rejected"]
+    default_publishes: "plan.approved"
+    instructions: |
+      ## SPRINT REVIEWER MODE — Plan Validation
+
+      Check the sprint plan for common planning failures.
+
+      ### Review Checklist
+
+      **Scope:**
+      - [ ] Total estimated effort fits within sprint duration (with 20% buffer)?
+      - [ ] No XL items that should be split?
+      - [ ] No scope creep vs. milestone goals?
+      - [ ] Deferred items are explicitly listed with reasons?
+
+      **Dependencies:**
+      - [ ] Dependency chain is ordered correctly?
+      - [ ] No circular dependencies?
+      - [ ] External blockers identified?
+
+      **Balance:**
+      - [ ] Mix of feature, quality, and design work?
+      - [ ] P0/P1 bugs addressed if any exist?
+      - [ ] Not all eggs in one basket (one system/area)?
+
+      **Completeness:**
+      - [ ] Every task has acceptance criteria?
+      - [ ] Every task maps to a preset?
+      - [ ] Risk register present for medium+ risks?
+
+      ### Decision
+      - `plan.approved`: Plan is feasible and well-balanced
+      - `plan.rejected`: Specific issues (over-scoped, missing dependencies, etc.)
+
+  publisher:
+    name: "Sprint Publisher"
+    description: "Writes the final sprint plan and task breakdown."
+    triggers: ["plan.approved"]
+    publishes: ["SPRINT_COMPLETE"]
+    default_publishes: "SPRINT_COMPLETE"
+    instructions: |
+      ## SPRINT PUBLISHER MODE — Final Sprint Document
+
+      Publish the approved sprint plan to the project's production directory.
+
+      ### Process
+      1. Read the approved proposal
+      2. Write the final sprint plan to `production/sprints/{sprint_name}.md`
+      3. Format for easy scanning:
+
+      ```markdown
+      # Sprint: {sprint_name}
+      **Duration**: [dates]
+      **Goal**: [one sentence]
+      **Status**: Active
+
+      ## Tasks
+
+      ### 1. [Task Name]
+      - **Size**: M
+      - **Preset**: `ralph run -c ralph.yml -H presets/feature.yml -p "[task description]"`
+      - **Depends on**: -
+      - **Acceptance**: [criteria]
+      - **Status**: [ ] Not started
+
+      ### 2. [Task Name]
+      ...
+
+      ## Stretch Goals
+      ...
+
+      ## Deferred
+      ...
+
+      ## Risk Register
+      ...
+
+      ## Retrospective (fill after sprint)
+      - **Completed**: [ ] / [ ] tasks
+      - **Velocity**: [actual vs estimated]
+      - **Blockers encountered**:
+      - **Lessons learned**:
+      ```
+
+      4. Include the actual Ralph commands to run each task
+      5. Close all runtime tasks
+      6. Emit `SPRINT_COMPLETE` with sprint plan file path
+
+      ### Constraints
+      - You MUST include runnable Ralph commands for each task
+      - You MUST include a retrospective section template
+      - You MUST write to `production/sprints/`

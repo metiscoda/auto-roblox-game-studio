@@ -1,0 +1,66 @@
+# Game Studio — Ralph Orchestrator Root Configuration
+#
+# Shared runtime config for all game-studio presets.
+# Usage:
+#   ralph run -c ralph.yml -H presets/feature.yml -p "Add combo system to melee combat"
+#   ralph run -c ralph.yml -H presets/brainstorm.yml -p "Explore tower defense concepts"
+#   ralph run -c ralph.yml -H presets/debug.yml -p "Players lose data on rejoin"
+
+event_loop:
+  prompt_file: "PROMPT.md"
+  completion_promise: LOOP_COMPLETE
+  max_iterations: 120
+  max_runtime_seconds: 14400        # 4 hours
+  idle_timeout_secs: 1800           # 30 min idle kill
+  starting_event: work.start
+  checkpoint_interval: 5
+  max_consecutive_failures: 5
+
+cli:
+  backend: claude
+  prompt_mode: stdin
+  # Per-hat model overrides: add backend_args: ["--model", "claude-sonnet-4-6"]
+  # to individual hats in preset files for cost optimization.
+
+core:
+  specs_dir: ".agents/scratchpad/"
+  guardrails:
+    # Roblox-specific
+    - "Roblox server-authoritative: all gameplay state lives on the server. Client handles input, UI, VFX, sound only."
+    - "Rojo-first editing: edit .luau files locally in game-rojo/src/, Rojo syncs to Studio automatically."
+    - "All gameplay values must be data-driven — config modules in game-rojo/src/shared/, never hardcoded."
+    - "Luau --!strict mode required at the top of every .luau file."
+    - "Forbidden: wait(), spawn(), delay(), global variables, GetService() in loops. Use task.wait(), task.spawn(), task.delay(), local variables, cached services."
+    # Ralph workflow
+    - "Fresh context each iteration — re-read scratchpad, design docs, and plan before acting."
+    - "Verification is mandatory — tests and quality checks must pass before advancing."
+    - "Confidence protocol: >80 proceed autonomously; 50-80 proceed + document in .ralph/agent/decisions.md; <50 choose safe default + document."
+    - "One task per iteration — do not batch multiple tasks."
+    - "YAGNI ruthlessly — no speculative features. KISS always — simplest solution that works."
+    - "Commit after each completed step. Never commit .ralph/ files."
+
+backpressure:
+  gates:
+    - name: rojo-sync
+      command: "cd game-rojo && rojo sourcemap default.project.json --output /dev/null 2>&1"
+      on_fail: "Rojo project is invalid. Fix default.project.json or file structure before proceeding."
+    - name: luau-strict
+      command: "! find game-rojo/src -name '*.luau' -exec grep -L -- '--!strict' {} + 2>/dev/null | head -5 | grep -q ."
+      on_fail: "Found .luau files without --!strict. Add --!strict to the top of every script."
+    - name: forbidden-patterns
+      command: "! grep -rnE '\\bwait\\(|\\bspawn\\(|\\bdelay\\(' game-rojo/src/ --include='*.luau' 2>/dev/null | head -5 | grep -q ."
+      on_fail: "Found forbidden legacy patterns (wait/spawn/delay). Use task.wait(), task.spawn(), task.delay() instead."
+
+memories:
+  enabled: true
+  inject: auto
+  budget: 3000                       # Larger budget for game context
+
+tasks:
+  enabled: true
+
+skills:
+  enabled: true
+  dirs:
+    - .claude/skills
+    - skills/game-studio

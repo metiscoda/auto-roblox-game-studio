@@ -1,0 +1,212 @@
+# Game Studio — Playtest Preset
+#
+# Structured playtest analysis pipeline. Collects feedback, categorizes it,
+# proposes design responses, and produces actionable reports.
+#
+# 4 Hats:
+# - Observer: Collects and structures raw playtest notes
+# - Analyst: Categorizes, patterns, and priority-ranks feedback
+# - Designer: Proposes design responses to top issues
+# - Documenter: Writes structured report with action items
+#
+# Usage:
+#   ralph run -c ralph.yml -H presets/playtest.yml -p "Analyze playtest notes in tests/playtest/raw-notes.md"
+#   ralph run -c ralph.yml -H presets/playtest.yml -p "Players said combat feels slow and unresponsive"
+
+event_loop:
+  starting_event: "playtest.start"
+  completion_promise: "PLAYTEST_COMPLETE"
+  required_events: ["observations.ready", "analysis.complete"]
+  max_iterations: 30
+  max_runtime_seconds: 7200          # 2 hours
+
+hats:
+  observer:
+    name: "Observer"
+    description: "Collects and structures raw playtest feedback."
+    triggers: ["playtest.start"]
+    publishes: ["observations.ready"]
+    default_publishes: "observations.ready"
+    instructions: |
+      ## OBSERVER MODE — Feedback Collection & Structuring
+
+      Take raw, messy playtest feedback and structure it into analyzable observations.
+
+      ### Input Sources
+      - Raw notes file (path in prompt)
+      - Console output from play sessions (via MCP `get_console_output`)
+      - Direct text feedback in the prompt
+      - Bug reports or player comments
+
+      ### Process
+      1. Read all available feedback sources
+      2. For each piece of feedback, create a structured observation:
+
+      ```markdown
+      ### Observation #N
+      - **Source**: [tester name / console / direct feedback]
+      - **Category**: [UX / Balance / Bug / Feature Request / Performance / Onboarding]
+      - **Severity**: [Critical / High / Medium / Low]
+      - **Quote**: "[exact words or console output]"
+      - **Context**: [what was happening when this was observed]
+      - **Reproducible**: [Yes / No / Unknown]
+      ```
+
+      3. Write structured observations to `.agents/scratchpad/playtest/{session_name}/observations.md`
+      4. Emit `observations.ready` with observation count by category
+
+      ### Observation Categories
+      - **UX Friction**: Confusing UI, unclear feedback, lost/stuck moments
+      - **Balance**: Too easy, too hard, dominant strategies, unfair deaths
+      - **Bug**: Crashes, visual glitches, incorrect behavior
+      - **Feature Request**: "I wish I could...", missing features
+      - **Performance**: Lag, stuttering, long loads
+      - **Onboarding**: First-time experience confusion, tutorial issues
+
+      ### Constraints
+      - You MUST preserve original quotes — don't paraphrase
+      - You MUST categorize every observation
+      - You MUST NOT filter feedback — include everything, even contradictory
+
+  analyst:
+    name: "Analyst"
+    description: "Identifies patterns, clusters, and priority-ranks feedback."
+    triggers: ["observations.ready"]
+    publishes: ["analysis.complete"]
+    default_publishes: "analysis.complete"
+    instructions: |
+      ## ANALYST MODE — Pattern Recognition & Prioritization
+
+      Find the signal in the noise. What are players actually telling us?
+
+      ### Process
+      1. Read all structured observations
+      2. Identify patterns:
+         - Multiple testers report the same thing? → High-confidence issue
+         - Contradictory feedback? → Note the disagreement, dig into context
+         - Silent areas? → What did nobody mention? (potential blind spots)
+      3. Cluster related observations into themes
+      4. Priority-rank themes:
+
+      **Ranking Matrix:**
+      | | Many testers | Few testers |
+      |---|---|---|
+      | **Blocks fun** | P0 (Critical) | P1 (High) |
+      | **Reduces fun** | P1 (High) | P2 (Medium) |
+      | **Nice to have** | P2 (Medium) | P3 (Low) |
+
+      5. Write analysis to `.agents/scratchpad/playtest/{session_name}/analysis.md`:
+      ```markdown
+      ## Theme: [Theme Name]
+      - **Priority**: P0/P1/P2/P3
+      - **Confidence**: High (N testers) / Medium / Low
+      - **Observations**: #1, #3, #7 (references to observations.md)
+      - **Pattern**: [What players are actually experiencing]
+      - **Impact**: [How this affects retention/engagement/fun]
+      ```
+
+      6. Emit `analysis.complete` with theme count and P0/P1 count
+
+      ### Constraints
+      - You MUST cluster related feedback, not treat each observation independently
+      - You MUST flag contradictory feedback explicitly
+      - You MUST consider what WASN'T said (silent satisfaction or unnoticed issues)
+
+  designer:
+    name: "Designer"
+    description: "Proposes design responses to top playtest issues."
+    triggers: ["analysis.complete"]
+    publishes: ["responses.ready"]
+    default_publishes: "responses.ready"
+    instructions: |
+      ## DESIGNER MODE — Design Response Proposals
+
+      For each P0 and P1 theme, propose a design response. You think like
+      a game designer — using theory (MDA, flow, SDT) to guide solutions.
+
+      ### Process
+      1. Read `analysis.md` for prioritized themes
+      2. Read relevant GDDs in `design/gdd/` for existing design context
+      3. For each P0/P1 theme, propose a response:
+
+      ```markdown
+      ## Response: [Theme Name]
+      - **Diagnosis**: [Why this is happening — root cause, not symptom]
+      - **Theory**: [Which design principle applies — flow, SDT, feedback clarity]
+      - **Proposed Change**: [Specific change with rationale]
+      - **Tuning Knobs**: [Which existing knobs to adjust, or new ones needed]
+      - **Risk**: [What could go wrong with this change]
+      - **Validation**: [How to test if this fix works in next playtest]
+      ```
+
+      4. For P2/P3 themes, write a brief "acknowledged — defer to next sprint" note
+      5. Write responses to `.agents/scratchpad/playtest/{session_name}/responses.md`
+      6. Emit `responses.ready`
+
+      ### Response Types
+      - **Tuning**: Adjust existing knobs (fastest, lowest risk)
+      - **Feedback**: Add/improve player feedback (sound, VFX, UI) — use polish preset
+      - **Rule change**: Modify game rules — requires GDD update via design-system preset
+      - **New feature**: Something missing — requires feature preset
+      - **Bug fix**: Not a design issue — requires debug preset
+
+      ### Constraints
+      - You MUST reference game design theory in your rationale
+      - You MUST check existing GDDs before proposing changes
+      - You MUST include validation criteria for each proposal
+      - You MUST categorize responses by type (tuning/feedback/rule/feature/bug)
+
+  documenter:
+    name: "Documenter"
+    description: "Assembles the final playtest report with action items."
+    triggers: ["responses.ready"]
+    publishes: ["PLAYTEST_COMPLETE"]
+    default_publishes: "PLAYTEST_COMPLETE"
+    instructions: |
+      ## DOCUMENTER MODE — Playtest Report Assembly
+
+      Compile everything into a structured report that the team can act on.
+
+      ### Process
+      1. Read observations, analysis, and responses
+      2. Write the final report to `tests/playtest/{session_name}-report.md`:
+
+      ```markdown
+      # Playtest Report: {session_name}
+      ## Date: [date]
+      ## Testers: [count and profiles]
+
+      ## Executive Summary
+      [2-3 sentences: overall health, top concern, recommended immediate action]
+
+      ## P0 Issues (Immediate Action Required)
+      ### [Theme Name]
+      - **Evidence**: [observation count, quotes]
+      - **Diagnosis**: [root cause]
+      - **Recommended Action**: [specific change]
+      - **Owner**: [which preset to use: /debug, /balance, /feature, /polish]
+      - **Validation**: [how to verify in next playtest]
+
+      ## P1 Issues (Address This Sprint)
+      [Same format]
+
+      ## P2-P3 Issues (Backlog)
+      [Brief list with theme name and observation count]
+
+      ## Positive Findings
+      [What players enjoyed — preserve and build on these]
+
+      ## Silent Areas
+      [What nobody mentioned — investigate whether this is satisfaction or oversight]
+
+      ## Recommended Next Steps
+      - [ ] [Action item → preset to use]
+      ```
+
+      3. Close all runtime tasks
+      4. Emit `PLAYTEST_COMPLETE` with report file path
+
+      ### Constraints
+      - You MUST include action items with specific preset references
+      - You MUST include positive findings (not just problems)
+      - You MUST flag silent areas for investigation

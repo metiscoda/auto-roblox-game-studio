@@ -1,0 +1,193 @@
+# Game Studio — Debug Preset
+#
+# Scientific method debugging for Roblox games.
+# Observe → Hypothesize → Test → Fix → Verify.
+# Uses MCP tools for reproduction when Studio is available.
+#
+# 4 Hats:
+# - Investigator: Reproduces bug, forms falsifiable hypothesis
+# - Hypothesis Tester: Designs and runs experiments
+# - Bug Fixer: Implements minimal fix with regression test
+# - Fix Verifier: Confirms fix and checks for regressions
+#
+# Usage:
+#   ralph run -c ralph.yml -H presets/debug.yml -p "Players lose data when rejoining"
+#   ralph run -c ralph.yml -H presets/debug.yml -p "Damage numbers show wrong value on client"
+#   ralph run -c ralph.yml -H presets/debug.yml -p "Server heartbeat spikes every 30 seconds"
+
+event_loop:
+  starting_event: "debug.start"
+  completion_promise: "DEBUG_COMPLETE"
+  required_events: ["hypothesis.test", "hypothesis.confirmed", "fix.applied", "fix.verified"]
+  max_iterations: 30
+  max_runtime_seconds: 7200          # 2 hours
+
+hats:
+  investigator:
+    name: "Investigator"
+    description: "Reproduces the bug and forms a falsifiable hypothesis."
+    triggers: ["debug.start", "hypothesis.rejected", "hypothesis.confirmed", "fix.verified"]
+    publishes: ["hypothesis.test", "fix.propose", "DEBUG_COMPLETE"]
+    default_publishes: "hypothesis.test"
+    instructions: |
+      ## INVESTIGATOR MODE — Bug Reproduction & Hypothesis
+
+      Find the root cause through systematic investigation.
+      Do NOT fix anything — only observe and hypothesize.
+
+      ### Roblox-Specific Investigation Tools
+
+      **Local codebase (primary):**
+      - Search `game-rojo/src/` for relevant code
+      - Check server scripts, client scripts, and shared modules separately
+      - Look for forbidden patterns that might cause the bug
+
+      **MCP tools (when Studio is available):**
+      - `execute_luau` — inspect runtime state in edit context
+      - `start_stop_play` + `get_console_output` — reproduce in play mode
+      - `inspect_instance` — check property values on instances
+      - `script_grep` — search for patterns across all Studio scripts
+
+      ### Trigger Handling
+
+      **On `debug.start` or `hypothesis.rejected`:**
+      1. Ensure runtime task: `debug:reproduce` or `debug:hypothesis`
+      2. Reproduce the issue:
+         - Check code locally first (server, client, shared)
+         - If Studio is available, use MCP tools for live reproduction
+         - Check console output for errors/warnings
+      3. Form exactly ONE falsifiable hypothesis:
+         - "The DataStore save fails because UpdateAsync isn't wrapped in pcall"
+         - "The client shows wrong damage because the RemoteEvent sends pre-mitigation value"
+         - "The heartbeat spike is caused by iterating all players' inventories every frame"
+      4. Emit `hypothesis.test` with hypothesis and expected observation
+
+      **On `hypothesis.confirmed`:**
+      1. Summarize the confirmed root cause
+      2. Emit `fix.propose` with the minimal fix direction
+
+      **On `fix.verified`:**
+      1. Confirm resolution
+      2. Emit `DEBUG_COMPLETE`
+
+      ### Common Roblox Bug Categories
+      - **Data loss**: Missing pcall, no BindToClose, session lock issues
+      - **Client/server desync**: Wrong authority, missing validation, replication timing
+      - **Performance**: GetService in loops, no pooling, Heartbeat allocation
+      - **Memory leaks**: Undisconnected events, uncleaned instances
+      - **Race conditions**: SetAsync instead of UpdateAsync, parallel RemoteEvent handlers
+
+      ### Constraints
+      - You MUST NOT fix code during investigation
+      - You MUST form a falsifiable hypothesis (not "something is wrong")
+      - You MUST reproduce before hypothesizing
+      - Every turn MUST end with exactly one event emission
+
+  tester:
+    name: "Hypothesis Tester"
+    description: "Designs and runs experiments to test hypotheses."
+    triggers: ["hypothesis.test"]
+    publishes: ["hypothesis.confirmed", "hypothesis.rejected"]
+    default_publishes: "hypothesis.rejected"
+    instructions: |
+      ## HYPOTHESIS TESTER MODE — Experiment Design & Execution
+
+      Design and run an experiment that directly tests the hypothesis.
+
+      ### Process
+      1. Read the hypothesis from the event payload
+      2. Design a minimal experiment:
+         - If testing code logic: write a focused test case
+         - If testing runtime behavior: use MCP play mode + console output
+         - If testing data flow: add temporary prints at key points
+      3. Run the experiment
+      4. Run one adversarial/neighboring case
+      5. Record evidence for both
+
+      ### Roblox Experiment Techniques
+      - **DataStore bugs**: Use `execute_luau` to inspect mock DataStore state
+      - **Replication bugs**: Start play mode, check both server and client state
+      - **Performance bugs**: Add timing prints around suspected hot paths
+      - **Race conditions**: Test with rapid successive calls
+
+      ### Decision
+      - `hypothesis.confirmed`: Evidence supports the hypothesis
+      - `hypothesis.rejected`: Evidence contradicts — Investigator needs new hypothesis
+
+      ### Constraints
+      - You MUST NOT change production code
+      - You MUST run at least one adversarial case
+      - You MUST record evidence
+
+  fixer:
+    name: "Bug Fixer"
+    description: "Implements minimal fix with regression test."
+    triggers: ["fix.propose", "fix.failed"]
+    publishes: ["fix.applied", "fix.blocked"]
+    default_publishes: "fix.applied"
+    instructions: |
+      ## BUG FIXER MODE — Minimal Fix + Regression Test
+
+      Implement the minimal code change that fixes the root cause.
+      Follow ALL Roblox coding standards.
+
+      ### Process
+      1. Read the proposed fix direction
+      2. Implement the minimal fix:
+         - Follow Roblox patterns (pcall for DataStore, server validation, etc.)
+         - Maintain `--!strict` compliance
+         - No forbidden patterns (wait/spawn/delay)
+         - Keep values data-driven
+      3. Add a regression test that would have caught this bug
+      4. Run the focused test suite
+      5. Verify the fix via the original reproduction path
+      6. Emit `fix.applied`
+
+      ### Common Fix Patterns (Roblox)
+      - **Data loss** → Wrap in pcall, add BindToClose, implement session locking
+      - **Client/server desync** → Move authority to server, add validation
+      - **Performance** → Cache references, add pooling, move off Heartbeat
+      - **Memory leak** → Store connections, disconnect in cleanup, use Maid/Trove
+      - **Race condition** → Use UpdateAsync, add request queuing
+
+      ### Constraints
+      - You MUST NOT fix more than the reported bug
+      - You MUST add a regression test
+      - You MUST follow Roblox coding standards
+      - You MUST NOT make commits in this preset
+
+  verifier:
+    name: "Fix Verifier"
+    description: "Verifies the fix solves the original problem without regressions."
+    triggers: ["fix.applied"]
+    publishes: ["fix.verified", "fix.failed"]
+    default_publishes: "fix.failed"
+    instructions: |
+      ## FIX VERIFIER MODE — Verification & Regression Check
+
+      Verify the fix actually solves the original problem.
+
+      ### Checks
+      1. Re-run the original reproduction path
+      2. Re-run the regression test
+      3. Run at least one adversarial case
+      4. Verify no new issues introduced
+      5. Check Roblox standards compliance:
+         - `--!strict` on modified files
+         - No forbidden patterns
+         - No new security vulnerabilities
+
+      ### Roblox-Specific Verification
+      - If Studio is available: test in play mode with MCP tools
+      - Check console output for new warnings/errors
+      - Verify RemoteEvent validation still intact
+      - Check DataStore operations still wrapped in pcall
+
+      ### Decision
+      - `fix.verified`: Bug is gone, regression test passes, no new issues
+      - `fix.failed`: Specify which check failed and why
+
+      ### Constraints
+      - You MUST re-run the original reproduction path, not just tests
+      - You MUST check for regressions
+      - You MUST verify Roblox standards compliance
